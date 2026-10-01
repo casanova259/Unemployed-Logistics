@@ -11,12 +11,24 @@ export interface PublicTrackingResponse {
   destLat: number;
   destLng: number;
   receiverCity: string;
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number; city: string };
   createdAt: Date;
   updatedAt: Date;
   timeline: {
     id: string;
     status: string;
     note: string | null;
+    lat: number | null;
+    lng: number | null;
+    createdAt: Date;
+  }[];
+  events: {
+    id: string;
+    status: string;
+    note: string | null;
+    lat: number | null;
+    lng: number | null;
     createdAt: Date;
   }[];
 }
@@ -45,6 +57,8 @@ export async function getPublicTracking(trackingId: string): Promise<PublicTrack
           id: true,
           status: true,
           note: true,
+          lat: true,
+          lng: true,
           createdAt: true,
         },
       },
@@ -67,8 +81,15 @@ export async function getPublicTracking(trackingId: string): Promise<PublicTrack
     destLat: shipment.destLat,
     destLng: shipment.destLng,
     receiverCity,
+    origin: { lat: shipment.originLat, lng: shipment.originLng },
+    destination: {
+      lat: shipment.destLat,
+      lng: shipment.destLng,
+      city: receiverCity,
+    },
     createdAt: shipment.createdAt,
     updatedAt: shipment.updatedAt,
     timeline: shipment.events,
+    events: shipment.events,
   };
 }

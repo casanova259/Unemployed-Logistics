@@ -1,0 +1,19 @@
+{
+  "name": "logistics-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "logistics-client",
+    "logistics-server"
+  ],
+  "scripts": {
+    "dev:client": "pnpm --filter logistics-client dev",
+    "dev:server": "pnpm --filter logistics-server dev",
+    "dev": "pnpm --filter logistics-client dev",
+    "build": "pnpm --filter logistics-client build && pnpm --filter logistics-server build",
+    "db:migrate": "pnpm --filter logistics-client prisma:migrate",
+    "db:seed": "pnpm --filter logistics-client prisma:seed",
+    "test": "pnpm --filter logistics-client test",
+    "lint": "pnpm --filter logistics-client lint"
+  }
+}

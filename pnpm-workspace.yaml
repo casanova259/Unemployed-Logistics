@@ -1,0 +1,3 @@
+packages:
+  - "logistics-client"
+  - "logistics-server"

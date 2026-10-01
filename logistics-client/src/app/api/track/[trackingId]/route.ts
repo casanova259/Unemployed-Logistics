@@ -9,7 +9,7 @@ export async function GET(
   try {
     const { trackingId } = await params;
     const trackingData = await getPublicTracking(trackingId);
-    return apiSuccess({ tracking: trackingData });
+    return apiSuccess({ ...trackingData, tracking: trackingData });
   } catch (error) {
     return handleApiError(error);
   }

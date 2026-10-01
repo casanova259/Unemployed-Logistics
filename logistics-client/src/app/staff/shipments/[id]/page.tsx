@@ -7,6 +7,7 @@ import Timeline from "@/components/Timeline";
 import { ShipmentData } from "@/types";
 import { ShipmentStatus } from "@prisma/client";
 import { getNextAllowedStatuses } from "@/lib/stateMachine";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   Package,
@@ -22,7 +23,17 @@ import {
   RefreshCw,
   Send,
   Loader2,
+  Navigation,
 } from "lucide-react";
+
+const LiveShipmentMap = dynamic(() => import("@/components/LiveShipmentMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[280px] w-full bg-slate-900/60 flex items-center justify-center text-xs text-slate-400 animate-pulse rounded-xl border border-slate-800">
+      Loading interactive route map...
+    </div>
+  ),
+});
 
 export default function StaffShipmentManagePage({
   params,
@@ -344,6 +355,25 @@ export default function StaffShipmentManagePage({
               <span>Type: <strong className="text-slate-200">{shipment.type}</strong></span>
               <span>Weight: <strong className="text-slate-200">{shipment.weightKg} kg</strong></span>
               <span>Coords: <span className="font-mono text-slate-300">{shipment.destLat.toFixed(3)}, {shipment.destLng.toFixed(3)}</span></span>
+            </div>
+
+            {/* Visual Live Route Map */}
+            <div className="pt-2">
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold mb-2">
+                <Navigation className="h-3.5 w-3.5 text-blue-400" />
+                <span>Live Route & Milestone Telemetry</span>
+              </div>
+              <div className="h-[280px] w-full rounded-xl overflow-hidden border border-slate-800">
+                <LiveShipmentMap
+                  origin={[shipment.originLat, shipment.originLng]}
+                  destination={[shipment.destLat, shipment.destLng]}
+                  currentPos={
+                    shipment.events?.slice(-1)[0]?.lat && shipment.events?.slice(-1)[0]?.lng
+                      ? [shipment.events.slice(-1)[0].lat!, shipment.events.slice(-1)[0].lng!]
+                      : null
+                  }
+                />
+              </div>
             </div>
           </div>
 
