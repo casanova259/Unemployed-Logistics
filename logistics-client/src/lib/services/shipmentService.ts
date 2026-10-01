@@ -15,6 +15,7 @@ import {
   sendOtpEmail,
 } from "./otpService";
 import { emitShipmentChanged } from "@/lib/emit";
+import { predictShipmentEtaAndDelay } from "./etaPredictionService";
 import crypto from "crypto";
 
 export interface SessionUser {
@@ -203,8 +204,22 @@ export async function getShipments(
     }),
   ]);
 
+  const shipmentsWithEta = shipments.map((s) => ({
+    ...s,
+    eta: predictShipmentEtaAndDelay({
+      originLat: s.originLat,
+      originLng: s.originLng,
+      destLat: s.destLat,
+      destLng: s.destLng,
+      weightKg: s.weightKg,
+      type: s.type,
+      status: s.status,
+      createdAt: s.createdAt,
+    }),
+  }));
+
   return {
-    shipments,
+    shipments: shipmentsWithEta,
     total,
     page,
     limit,
@@ -244,7 +259,22 @@ export async function getShipmentById(id: string, currentUser: SessionUser) {
     throw new ForbiddenError("You are not assigned to this shipment");
   }
 
-  return shipment;
+  const lastEvent = shipment.events[0];
+  const eta = predictShipmentEtaAndDelay({
+    originLat: shipment.originLat,
+    originLng: shipment.originLng,
+    destLat: shipment.destLat,
+    destLng: shipment.destLng,
+    weightKg: shipment.weightKg,
+    type: shipment.type,
+    status: shipment.status,
+    createdAt: shipment.createdAt,
+    lastEventTime: lastEvent?.createdAt,
+    lastEventLat: lastEvent?.lat,
+    lastEventLng: lastEvent?.lng,
+  });
+
+  return { ...shipment, eta };
 }
 
 export async function updateShipmentStatusGeneric(

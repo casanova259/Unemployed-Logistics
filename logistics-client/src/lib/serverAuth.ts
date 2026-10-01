@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { UnauthorizedError } from "@/lib/errors";
 import { Role } from "@prisma/client";
 

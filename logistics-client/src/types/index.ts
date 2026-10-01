@@ -89,4 +89,15 @@ export interface ShipmentData {
   originHub?: HubData | null;
   destHub?: HubData | null;
   events?: ShipmentEventData[];
+  eta?: {
+    distanceKm: number;
+    estimatedDurationMinutes: number;
+    predictedDeliveryDate: Date | string;
+    formattedDeliveryDate: string;
+    delayRiskScore: number;
+    delayRiskLevel: "LOW" | "MEDIUM" | "HIGH";
+    delayRiskFactors: string[];
+    confidencePercent: number;
+    statusExplanation: string;
+  };
 }

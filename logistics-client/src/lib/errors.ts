@@ -11,6 +11,12 @@ export class AppError extends Error {
   }
 }
 
+export class ValidationError extends AppError {
+  constructor(message: string = "Validation error") {
+    super(message, 400);
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message: string = "Resource not found") {
     super(message, 404);

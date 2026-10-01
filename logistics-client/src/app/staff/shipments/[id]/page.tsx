@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Send,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 
 export default function StaffShipmentManagePage({
@@ -346,6 +347,79 @@ export default function StaffShipmentManagePage({
               <span>Coords: <span className="font-mono text-slate-300">{shipment.destLat.toFixed(3)}, {shipment.destLng.toFixed(3)}</span></span>
             </div>
           </div>
+
+          {/* Smart ETA & Delay Risk Telemetry Card */}
+          {shipment.eta && (
+            <div className="p-6 rounded-2xl glass-card border border-indigo-500/30 bg-gradient-to-br from-indigo-950/20 via-slate-900/50 to-slate-900/80 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-indigo-400" />
+                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Smart AI Telemetry & Delay Risk Prediction
+                  </h2>
+                </div>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                    shipment.eta.delayRiskLevel === "HIGH"
+                      ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                      : shipment.eta.delayRiskLevel === "MEDIUM"
+                      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  }`}
+                >
+                  {shipment.eta.delayRiskLevel} RISK ({shipment.eta.delayRiskScore}% Risk)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-slate-500 text-[10px] uppercase font-mono block">Estimated Arrival</span>
+                  <span className="font-bold text-white text-sm">
+                    {new Date(shipment.eta.predictedDeliveryDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {new Date(shipment.eta.predictedDeliveryDate).toLocaleDateString([], { month: "short", day: "numeric" })}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-slate-500 text-[10px] uppercase font-mono block">Remaining Time</span>
+                  <span className="font-bold text-indigo-300 text-sm">
+                    {Math.floor(shipment.eta.estimatedDurationMinutes / 60)}h {shipment.eta.estimatedDurationMinutes % 60}m
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">{shipment.eta.estimatedDurationMinutes} total mins</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-slate-500 text-[10px] uppercase font-mono block">Remaining Dist</span>
+                  <span className="font-bold text-white text-sm">{shipment.eta.distanceKm} km</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Road-calibrated</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-slate-500 text-[10px] uppercase font-mono block">AI Confidence</span>
+                  <span className="font-bold text-emerald-400 text-sm">{shipment.eta.confidencePercent}%</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Telemetry model</span>
+                </div>
+              </div>
+
+              {shipment.eta.delayRiskFactors && shipment.eta.delayRiskFactors.length > 0 && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <span className="text-[11px] text-slate-400 font-medium block mb-1.5">Delay Analysis Factors:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {shipment.eta.delayRiskFactors.map((factor: string, idx: number) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60"
+                      >
+                        • {factor}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Lifecycle Action Center (Buttons strictly restricted to valid next statuses) */}
           <div className="p-6 rounded-2xl glass-card border border-blue-500/30 space-y-5">

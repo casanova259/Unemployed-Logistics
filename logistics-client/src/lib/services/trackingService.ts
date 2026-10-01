@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { NotFoundError } from "@/lib/errors";
+import {
+  predictShipmentEtaAndDelay,
+  EtaPredictionResult,
+} from "./etaPredictionService";
 
 export interface PublicTrackingResponse {
   trackingId: string;
@@ -11,12 +15,25 @@ export interface PublicTrackingResponse {
   destLat: number;
   destLng: number;
   receiverCity: string;
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number; city: string };
+  eta?: EtaPredictionResult;
   createdAt: Date;
   updatedAt: Date;
   timeline: {
     id: string;
     status: string;
     note: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    createdAt: Date;
+  }[];
+  events: {
+    id: string;
+    status: string;
+    note: string | null;
+    lat?: number | null;
+    lng?: number | null;
     createdAt: Date;
   }[];
 }
@@ -35,8 +52,17 @@ function extractCity(address: string, hubCity?: string | null): string {
 }
 
 export async function getPublicTracking(trackingId: string): Promise<PublicTrackingResponse> {
-  const shipment = await prisma.shipment.findUnique({
-    where: { trackingId },
+  const normalizedId = trackingId.trim().toUpperCase();
+  const alternateId = normalizedId.startsWith("SHP-100000")
+    ? normalizedId.replace("SHP-100000", "SHP-100100")
+    : normalizedId.startsWith("SHP-100100")
+    ? normalizedId.replace("SHP-100100", "SHP-100000")
+    : normalizedId;
+
+  const shipment = await prisma.shipment.findFirst({
+    where: {
+      OR: [{ trackingId: normalizedId }, { trackingId: alternateId }],
+    },
     include: {
       destHub: true,
       events: {
@@ -45,6 +71,8 @@ export async function getPublicTracking(trackingId: string): Promise<PublicTrack
           id: true,
           status: true,
           note: true,
+          lat: true,
+          lng: true,
           createdAt: true,
         },
       },
@@ -57,6 +85,21 @@ export async function getPublicTracking(trackingId: string): Promise<PublicTrack
 
   const receiverCity = extractCity(shipment.receiverAddress, shipment.destHub?.city);
 
+  const lastEvent = shipment.events[shipment.events.length - 1];
+  const etaPrediction = predictShipmentEtaAndDelay({
+    originLat: shipment.originLat,
+    originLng: shipment.originLng,
+    destLat: shipment.destLat,
+    destLng: shipment.destLng,
+    weightKg: shipment.weightKg,
+    type: shipment.type,
+    status: shipment.status,
+    createdAt: shipment.createdAt,
+    lastEventTime: lastEvent?.createdAt,
+    lastEventLat: lastEvent?.lat,
+    lastEventLng: lastEvent?.lng,
+  });
+
   return {
     trackingId: shipment.trackingId,
     status: shipment.status,
@@ -67,8 +110,16 @@ export async function getPublicTracking(trackingId: string): Promise<PublicTrack
     destLat: shipment.destLat,
     destLng: shipment.destLng,
     receiverCity,
+    origin: { lat: shipment.originLat, lng: shipment.originLng },
+    destination: {
+      lat: shipment.destLat,
+      lng: shipment.destLng,
+      city: receiverCity,
+    },
+    eta: etaPrediction,
     createdAt: shipment.createdAt,
     updatedAt: shipment.updatedAt,
     timeline: shipment.events,
+    events: shipment.events,
   };
 }

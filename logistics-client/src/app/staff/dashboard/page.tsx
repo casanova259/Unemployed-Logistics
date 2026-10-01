@@ -17,6 +17,9 @@ import {
   CheckCircle,
   Clock,
   Truck,
+  Route,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 
 export default function StaffDashboardPage() {
@@ -26,6 +29,7 @@ export default function StaffDashboardPage() {
   const [error, setError] = useState("");
 
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
+  const [riskFilter, setRiskFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
   const loadData = useCallback(async () => {
@@ -68,10 +72,21 @@ export default function StaffDashboardPage() {
     RETURNED: 0,
   };
 
+  let highRiskCount = 0;
+
   shipments.forEach((s) => {
     if (statusCounts[s.status] != null) {
       statusCounts[s.status]++;
     }
+    if (s.eta?.delayRiskLevel === "HIGH" && s.status !== "DELIVERED" && s.status !== "RETURNED") {
+      highRiskCount++;
+    }
+  });
+
+  // Filter shipments by risk if selected
+  const displayedShipments = shipments.filter((s) => {
+    if (riskFilter === "ALL") return true;
+    return s.eta?.delayRiskLevel === riskFilter;
   });
 
   return (
@@ -81,17 +96,24 @@ export default function StaffDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Operations Dispatcher Hub</h1>
           <p className="text-xs text-slate-400">
-            Monitor real-time shipments, assign fleets, and manage lifecycle handoffs
+            Monitor real-time shipments, optimize linehaul corridors, and manage delay risks
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadData}
             className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-            title="Refresh"
+            title="Refresh Data"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
+          <Link
+            href="/staff/route-optimizer"
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/25"
+          >
+            <Route className="h-4 w-4" />
+            Route Optimizer
+          </Link>
           <Link
             href="/staff/shipments/new"
             className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition flex items-center gap-1.5 shadow-lg shadow-blue-600/25"
@@ -103,7 +125,7 @@ export default function StaffDashboardPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-9 gap-2.5">
         {[
           { key: "ALL", label: "Total Orders", count: total, color: "text-white" },
           { key: "CREATED", label: "Created", count: statusCounts.CREATED, color: "text-sky-400" },
@@ -113,12 +135,21 @@ export default function StaffDashboardPage() {
           { key: "DELIVERED", label: "Delivered", count: statusCounts.DELIVERED, color: "text-emerald-400" },
           { key: "FAILED", label: "Failed", count: statusCounts.FAILED, color: "text-rose-400" },
           { key: "RESCHEDULED", label: "Rescheduled", count: statusCounts.RESCHEDULED, color: "text-orange-400" },
+          { key: "HIGH_RISK", label: "AI Delay Risk", count: highRiskCount, color: "text-rose-400" },
         ].map((item) => (
           <button
             key={item.key}
-            onClick={() => setSelectedStatus(item.key)}
+            onClick={() => {
+              if (item.key === "HIGH_RISK") {
+                setRiskFilter(riskFilter === "HIGH" ? "ALL" : "HIGH");
+              } else {
+                setSelectedStatus(item.key);
+                setRiskFilter("ALL");
+              }
+            }}
             className={`p-3 rounded-xl border text-left transition ${
-              selectedStatus === item.key
+              (item.key === "HIGH_RISK" && riskFilter === "HIGH") ||
+              (selectedStatus === item.key && riskFilter === "ALL")
                 ? "bg-slate-800 border-blue-500/80 shadow-md shadow-blue-500/10"
                 : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
             }`}
@@ -147,7 +178,7 @@ export default function StaffDashboardPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="h-4 w-4 text-slate-400 shrink-0" />
+          {/* Status Filter */}
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
@@ -159,6 +190,18 @@ export default function StaffDashboardPage() {
                 {st}
               </option>
             ))}
+          </select>
+
+          {/* AI Risk Filter */}
+          <select
+            value={riskFilter}
+            onChange={(e) => setRiskFilter(e.target.value)}
+            className="px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500 transition w-full sm:w-auto"
+          >
+            <option value="ALL">All AI Risks</option>
+            <option value="HIGH">High Risk Only</option>
+            <option value="MEDIUM">Medium Risk</option>
+            <option value="LOW">Low Risk</option>
           </select>
         </div>
       </div>
@@ -172,7 +215,7 @@ export default function StaffDashboardPage() {
           </div>
         ) : error ? (
           <div className="p-6 text-center text-rose-400 text-xs">{error}</div>
-        ) : shipments.length === 0 ? (
+        ) : displayedShipments.length === 0 ? (
           <div className="p-12 text-center text-slate-400 space-y-2">
             <Package className="h-8 w-8 mx-auto text-slate-500" />
             <p className="text-xs">No shipments matching current filters.</p>
@@ -185,14 +228,14 @@ export default function StaffDashboardPage() {
                   <th className="px-4 py-3">Tracking ID</th>
                   <th className="px-4 py-3">Route (From → To)</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Smart ETA & Delay Risk</th>
                   <th className="px-4 py-3">Assigned Driver</th>
                   <th className="px-4 py-3">Vehicle</th>
-                  <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {shipments.map((s) => (
+                {displayedShipments.map((s) => (
                   <tr
                     key={s.id}
                     className="hover:bg-slate-800/40 transition group"
@@ -209,6 +252,43 @@ export default function StaffDashboardPage() {
                     <td className="px-4 py-3">
                       <StatusBadge status={s.status} size="sm" />
                     </td>
+
+                    {/* Smart ETA & Delay Risk Cell */}
+                    <td className="px-4 py-3">
+                      {s.eta ? (
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`inline-block w-2 h-2 rounded-full ${
+                                s.eta.delayRiskLevel === "LOW"
+                                  ? "bg-emerald-400"
+                                  : s.eta.delayRiskLevel === "MEDIUM"
+                                  ? "bg-amber-400"
+                                  : "bg-rose-500 animate-pulse"
+                              }`}
+                            />
+                            <span
+                              className={`text-[11px] font-bold ${
+                                s.eta.delayRiskLevel === "LOW"
+                                  ? "text-emerald-400"
+                                  : s.eta.delayRiskLevel === "MEDIUM"
+                                  ? "text-amber-400"
+                                  : "text-rose-400"
+                              }`}
+                            >
+                              {s.eta.delayRiskLevel} Risk ({s.eta.delayRiskScore}%)
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-slate-500" />
+                            {s.eta.formattedDeliveryDate}
+                          </div>
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+
                     <td className="px-4 py-3 text-slate-300">
                       {s.assignedDriver ? (
                         <div>
@@ -229,9 +309,6 @@ export default function StaffDashboardPage() {
                       ) : (
                         "—"
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400 font-mono">
-                      {new Date(s.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
