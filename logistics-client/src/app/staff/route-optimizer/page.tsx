@@ -279,7 +279,15 @@ export default function RouteOptimizerPage() {
           {/* Map */}
           <div className="h-[440px] w-full">
             <RouteOptimizerMap
-              waypoints={result?.orderedWaypoints || []}
+              waypoints={
+                result?.orderedWaypoints || [
+                  DEFAULT_HUBS.find((h) => h.id === originId) || DEFAULT_HUBS[0],
+                  ...selectedStops
+                    .map((sId) => DEFAULT_HUBS.find((h) => h.id === sId))
+                    .filter((h): h is Waypoint => h != null),
+                  DEFAULT_HUBS.find((h) => h.id === destId) || DEFAULT_HUBS[3],
+                ]
+              }
               routeGeometry={result?.routeGeometryCoordinates || []}
             />
           </div>
