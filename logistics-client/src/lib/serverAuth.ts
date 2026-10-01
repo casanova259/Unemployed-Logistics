@@ -11,14 +11,37 @@ export interface AuthenticatedUser {
 
 export async function getSessionUser(): Promise<AuthenticatedUser | null> {
   const session = await auth();
-  if (!session?.user?.id) {
+  if (!session?.user) {
     return null;
   }
+
+  const sessionUserId = session.user.id;
+  const sessionUserEmail = session.user.email?.toLowerCase().trim();
+
+  // Verify user still exists in database (in case database was reseeded while JWT cookie persisted)
+  let dbUser = sessionUserId
+    ? await prisma.user.findUnique({
+        where: { id: sessionUserId },
+        select: { id: true, name: true, email: true, role: true },
+      })
+    : null;
+
+  if (!dbUser && sessionUserEmail) {
+    dbUser = await prisma.user.findUnique({
+      where: { email: sessionUserEmail },
+      select: { id: true, name: true, email: true, role: true },
+    });
+  }
+
+  if (!dbUser) {
+    return null;
+  }
+
   return {
-    id: session.user.id,
-    name: session.user.name || "User",
-    email: session.user.email || "",
-    role: (session.user as { role?: Role }).role || Role.CUSTOMER,
+    id: dbUser.id,
+    name: dbUser.name || "User",
+    email: dbUser.email,
+    role: dbUser.role || Role.CUSTOMER,
   };
 }
 

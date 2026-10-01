@@ -60,9 +60,39 @@ export async function createShipment(
   input: CreateShipmentInput,
   currentUser: SessionUser
 ) {
-  // Customer can only create for themselves
-  const customerId =
-    currentUser.role === Role.CUSTOMER ? currentUser.id : input.customerId || currentUser.id;
+  // 1. Resolve actor user in DB (handles stale session tokens from re-seeding)
+  let actorUserId = currentUser.id;
+  const userById = await prisma.user.findUnique({ where: { id: actorUserId } });
+  if (!userById && currentUser.email) {
+    const userByEmail = await prisma.user.findUnique({
+      where: { email: currentUser.email.toLowerCase().trim() },
+    });
+    if (userByEmail) {
+      actorUserId = userByEmail.id;
+    }
+  }
+
+  // 2. Resolve customerId (customers can only create for themselves)
+  let customerId =
+    currentUser.role === Role.CUSTOMER ? actorUserId : input.customerId || actorUserId;
+
+  const customerExists = await prisma.user.findUnique({
+    where: { id: customerId },
+  });
+
+  if (!customerExists) {
+    const customerByEmail = await prisma.user.findUnique({
+      where: { email: input.senderEmail.toLowerCase().trim() },
+    });
+    if (customerByEmail) {
+      customerId = customerByEmail.id;
+    } else {
+      const fallbackCustomer = await prisma.user.findFirst({
+        where: { role: Role.CUSTOMER },
+      });
+      customerId = fallbackCustomer?.id || actorUserId;
+    }
+  }
 
   // Ensure unique tracking ID
   let trackingId = generateTrackingId();
@@ -108,7 +138,7 @@ export async function createShipment(
         note: "Shipment registered in system",
         lat: input.originLat,
         lng: input.originLng,
-        createdByUserId: currentUser.id,
+        createdByUserId: actorUserId,
       },
     });
 
