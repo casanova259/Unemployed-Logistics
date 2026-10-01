@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  STAFF
+  DRIVER
+  ADMIN
+}
+
+enum VehicleType {
+  BIKE
+  VAN
+  TRUCK
+  EV
+}
+
+enum ShipmentStatus {
+  CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RESCHEDULED
+  RETURNED
+}
+
+model User {
+  id               String          @id @default(cuid())
+  name             String
+  email            String          @unique
+  passwordHash     String
+  role             Role            @default(CUSTOMER)
+  phone            String?
+  isOnline         Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+
+  // Relations
+  customerShipments Shipment[]     @relation("CustomerShipments")
+  driverShipments   Shipment[]     @relation("DriverShipments")
+  createdEvents     ShipmentEvent[]
+  vehicles          Vehicle[]
+
+  @@index([role])
+}
+
+model Hub {
+  id              String     @id @default(cuid())
+  name            String
+  city            String
+  lat             Float
+  lng             Float
+
+  // Relations
+  originShipments Shipment[] @relation("OriginHub")
+  destShipments   Shipment[] @relation("DestHub")
+}
+
+model Vehicle {
+  id        String      @id @default(cuid())
+  plate     String      @unique
+  type      VehicleType
+  driverId  String?
+  driver    User?       @relation(fields: [driverId], references: [id])
+  isActive  Boolean     @default(true)
+
+  // Relations
+  shipments Shipment[]
+}
+
+model Shipment {
+  id                   String         @id @default(cuid())
+  trackingId           String         @unique // "SHP-XXXXXXXX"
+  customerId           String
+  customer             User           @relation("CustomerShipments", fields: [customerId], references: [id])
+
+  senderName           String
+  senderEmail          String
+  senderAddress        String
+
+  receiverName         String
+  receiverEmail        String
+  receiverPhone        String
+  receiverAddress      String
+
+  originLat            Float
+  originLng            Float
+  destLat              Float
+  destLng              Float
+
+  originHubId          String?
+  originHub            Hub?           @relation("OriginHub", fields: [originHubId], references: [id])
+  destHubId            String?
+  destHub              Hub?           @relation("DestHub", fields: [destHubId], references: [id])
+
+  weightKg             Float
+  type                 String
+  status               ShipmentStatus @default(CREATED)
+
+  assignedDriverId     String?
+  assignedDriver       User?          @relation("DriverShipments", fields: [assignedDriverId], references: [id])
+  vehicleId            String?
+  vehicle              Vehicle?       @relation(fields: [vehicleId], references: [id])
+
+  pickupOtpHash        String?
+  pickupOtpExpiresAt   DateTime?
+  deliveryOtpHash      String?
+  deliveryOtpExpiresAt DateTime?
+
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  // Append-only history
+  events               ShipmentEvent[]
+
+  @@index([status])
+  @@index([trackingId])
+  @@index([customerId])
+  @@index([assignedDriverId])
+}
+
+model ShipmentEvent {
+  id              String         @id @default(cuid())
+  shipmentId      String
+  shipment        Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  status          ShipmentStatus
+  note            String?
+  lat             Float?
+  lng             Float?
+  createdByUserId String?
+  createdByUser   User?          @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime       @default(now()) // APPEND-ONLY
+
+  @@index([shipmentId])
+  @@index([createdAt])
+}
